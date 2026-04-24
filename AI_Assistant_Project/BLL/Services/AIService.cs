@@ -4,6 +4,7 @@ using Domain.DTO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,27 +12,32 @@ namespace BLL.Services
 {
     public class AIService : IAIService
     {
-        private readonly IService<Request> _requestService;
-        public AIService(IService<Request> requestService)
+        private readonly IService<Request> _request;
+        public AIService(IService<Request> request)
         {
-            _requestService = requestService;
+            _request = request;
         }
 
-        public Task<AiResponseDto> ProcessAsync(AiResponseDto dto)
+        public async Task<AiResponseDto> ProcessAsync(AiRequestDto dto)
         {
-            throw new NotImplementedException();
+            var result = new AiResponseDto();
+
+            result.Response = "This is test response from AI";
+            result.Provider = "OpenAI";
+            result.FromCache = false;
+            result.IsSuccess = true;
+            result.CreatedAt = DateTime.UtcNow;
+
+            return await Task.FromResult(result);
+
+
         }
 
-        public Task<AiResponseDto> ProcessSmartAsync(AiResponseDto dto)
+        public async Task<AiResponseDto> ProcessSmartAsync(AiRequestDto dto)
         {
-            throw new NotImplementedException();
+            return await ProcessAsync(dto);
         }
 
-        private async Task<AiResponseDto> SendRequest(AiResponseDto dto)
-        {
-
-            throw new NotImplementedException();
-
-        }
+      
     }
 }
