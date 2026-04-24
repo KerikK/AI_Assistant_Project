@@ -1,5 +1,7 @@
-﻿using BLL.Interfaces;
+﻿using Azure.Core;
+using BLL.Interfaces;
 using DAL.Interfaces;
+using DAL.Repository;
 using Domain.Identity;
 using System;
 using System.Collections.Generic;
@@ -9,7 +11,8 @@ using System.Threading.Tasks;
 
 namespace BLL.Services
 {
-    public class AuthService(IUserRepository userRepository, IJwtService jwtService) : IAuthService
+    public class AuthService(IUserRepository userRepository, IJwtService jwtService,
+        IRefreshTokenRepository refreshTokenRepository) : IAuthService
     {
         public async Task<(bool Success, string Message, AuthResponse? response)> LoginAsync(LoginRequest request)
         {
@@ -50,13 +53,40 @@ namespace BLL.Services
         private async Task<AuthResponse> CreateAuthResponseAsync(User user)
         {
             var accessToken = jwtService.GenerateToken(user);
+            var refreshToken = jwtService.GenerateRefreshToken();
+            var refreshTokenEntity = new RefreshToken
+            {
+                Token = refreshToken,
+                UserId = user.Id,
+                Expires = DateTime.UtcNow.AddDays(7),
+                IsRevoked = false
+            };
+
+            await refreshTokenRepository.CreateAsync(refreshTokenEntity);
+            await refreshTokenRepository.SaveChangeAsync();
             return new AuthResponse()
             {
                 AccessToken = accessToken,
+                RefreshToken = refreshToken,
                 UserName = user.UserName,
                 Email = user.Email,
-                Expiration = DateTime.UtcNow.AddMinutes(15)
+                Expiration = DateTime.UtcNow.AddMinutes(30)
             };
+        }
+
+        public async Task<(bool Success, string Message, AuthResponse? response)> RefreshTokenAsync(string refreshToken)
+        {
+            var storedRefreshToken = await refreshTokenRepository.GetByTokenAsync(refreshToken);
+            if (storedRefreshToken == null || storedRefreshToken.Expires < DateTime.UtcNow ||
+                storedRefreshToken.IsRevoked)
+                return (false, "Invalid refresh token", null);
+
+            storedRefreshToken.IsRevoked = true;
+            refreshTokenRepository.Update(storedRefreshToken);
+            await refreshTokenRepository.SaveChangeAsync();
+
+            var response = await CreateAuthResponseAsync(storedRefreshToken.User);
+            return (true, "Token refreshed successfully", response);
         }
     }
 }

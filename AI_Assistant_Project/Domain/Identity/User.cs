@@ -14,5 +14,6 @@ namespace Domain.Identity
         public string Email { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public DateTime Created { get; set; }
+        public List<RefreshToken> Tokens { get; set; } = new();
     }
 }
