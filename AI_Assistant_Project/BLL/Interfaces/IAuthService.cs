@@ -12,5 +12,6 @@ namespace BLL.Interfaces
     {
         public Task<(bool Success, string Message)> RegisterAsync(RegisterRequest request);
         public Task<(bool Success, string Message, AuthResponse? response)> LoginAsync(LoginRequest request);
+        public Task<(bool Success, string Message, AuthResponse? response)> RefreshTokenAsync(string refreshToken);
     }
 }
