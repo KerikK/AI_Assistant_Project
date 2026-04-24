@@ -5,12 +5,14 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Domain.Identity;
+using AI_Assistant_Project.Models;
 
 namespace DAL
 {
     public class AIContext(DbContextOptions<AIContext> opts) : DbContext(opts)
     {
         public DbSet<User> Users { get; set; }
+        public DbSet<Request> Requests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -1,4 +1,8 @@
+using BLL.Interfaces;
+using BLL.Services;
 using DAL;
+using DAL.Interfaces;
+using DAL.Repository;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,8 +14,15 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+//builder.Services.AddDbContext<AIContext>(opts =>
+//    opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddDbContext<AIContext>(opts =>
-    opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    opts.UseInMemoryDatabase("AI_Assistant_Test_Db"));
+
+builder.Services.AddScoped<IRequestRepository, RequestRepository>();
+
+builder.Services.AddScoped<IAIService, AIService>();
 
 var app = builder.Build();
 

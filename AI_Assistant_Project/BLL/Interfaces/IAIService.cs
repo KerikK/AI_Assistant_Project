@@ -9,7 +9,7 @@ namespace BLL.Interfaces
 {
     public interface IAIService
     {
-        Task<AiResponseDto> ProcessAsync(AiRequestDto requestDto);
-        Task<AiResponseDto> ProcessSmartAsync(AiRequestDto requestDto);
+        Task<AiResponseDto> AskGroqAsync(AiRequestDto requestDto, string userId);
+        Task<AiResponseDto> AskGeminiAsync(AiRequestDto requestDto, string userId);
     }
 }

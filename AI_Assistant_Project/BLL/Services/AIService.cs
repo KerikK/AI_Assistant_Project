@@ -1,43 +1,97 @@
-﻿using AI_Assistant_Project.Models;
-using BLL.Interfaces;
+﻿using BLL.Interfaces;
 using Domain.DTO;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BLL.Services
 {
     public class AIService : IAIService
     {
-        private readonly IService<Request> _request;
-        public AIService(IService<Request> request)
+        private readonly IConfiguration _config;
+        public AIService(IConfiguration config)
         {
-            _request = request;
+            _config = config;
         }
 
-        public async Task<AiResponseDto> ProcessAsync(AiRequestDto dto)
+        public async Task<AiResponseDto> AskGroqAsync(AiRequestDto dto, string userId)
         {
-            var result = new AiResponseDto();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            using var client = new HttpClient();
 
-            result.Response = "This is test response from AI";
-            result.Provider = "OpenAI";
-            result.FromCache = false;
-            result.IsSuccess = true;
-            result.CreatedAt = DateTime.UtcNow;
-
-            return await Task.FromResult(result);
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config["AI:Groq:ApiKey"]}");
 
 
+            var requestBody = new
+            {
+                model = "llama-3.3-70b-versatile",
+                messages = new[] { new { role = "user", content = dto.Prompt } }
+            };
+
+            var response = await client.PostAsJsonAsync("https://api.groq.com/openai/v1/chat/completions", requestBody);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            watch.Stop();
+
+            var isSuccess = response.IsSuccessStatusCode;
+
+            string answer = "Request error";
+
+            if (response.IsSuccessStatusCode)
+            {
+                answer = result.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+            }
+
+            return new AiResponseDto
+            {
+                Response = answer,
+                Provider = "Groq (Llama 3.3)",
+                IsSuccess = response.IsSuccessStatusCode,
+                ExecutionTimeMs = watch.ElapsedMilliseconds,
+                CreatedAt = DateTime.UtcNow
+            };
         }
 
-        public async Task<AiResponseDto> ProcessSmartAsync(AiRequestDto dto)
+        public async Task<AiResponseDto> AskGeminiAsync(AiRequestDto dto, string userId)
         {
-            return await ProcessAsync(dto);
-        }
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            using var client = new HttpClient();
 
-      
+            var apiKey = _config["AI:Gemini:ApiKey"];
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={apiKey}";
+
+            var requestBody = new
+            {
+                contents = new[] { new { role = "user", parts = new[] { new { text = dto.Prompt } } } },
+                generationConfig = new { thinkingConfig = new { thinkingLevel = "HIGH" } }
+            };
+
+            var response = await client.PostAsJsonAsync(url, requestBody);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            watch.Stop();
+            var isSuccess = response.IsSuccessStatusCode;
+
+            string answer = "Request error";
+            if (response.IsSuccessStatusCode)
+            {
+                answer = result.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
+            }
+
+            return new AiResponseDto
+            {
+                Response = answer ?? "",
+                Provider = "Gemini 3 Flash",
+                IsSuccess = response.IsSuccessStatusCode,
+                ExecutionTimeMs = watch.ElapsedMilliseconds,
+                CreatedAt = DateTime.UtcNow
+            };
+         
+        }
     }
 }

@@ -13,7 +13,6 @@ namespace AI_Assistant_Project.Models
         public string? ErrorMessage { get; set; }
         public long ResponseTimeMs { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
         public string UserId { get; set; } = string.Empty;
         public User? User { get; set; }
     }
