@@ -21,7 +21,7 @@ namespace BLL.Services
             _config = config;
         }
 
-        public async Task<AiResponseDto> AskGrokAsync(AiRequestDto dto, string userId)
+        public async Task<AiResponseDto> AskGrokAsync(AiRequestDto dto)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             using var client = new HttpClient();
@@ -56,7 +56,7 @@ namespace BLL.Services
             };
         }
 
-        public async Task<AiResponseDto> AskGeminiAsync(AiRequestDto dto, string userId)
+        public async Task<AiResponseDto> AskGeminiAsync(AiRequestDto dto)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             using var client = new HttpClient();

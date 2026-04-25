@@ -11,9 +11,8 @@ namespace DAL.Repository
 {
     public class RequestRepository : Repository<Request>, IRequestRepository
     {
-        public RequestRepository(AIContext context) : base(context)
-        {
-        }
+        public RequestRepository(AIContext context) : base(context) { }
+
         public async Task<IEnumerable<Request>> GetByUserIdAsync(string userId)
         {
             return await _dbSet

@@ -20,7 +20,7 @@ namespace AI_Assistant_Project.Controllers
         {
             if (string.IsNullOrWhiteSpace(request.Prompt))
                 return BadRequest("Prompt is empty");
-            var result = await _aiService.AskGroqAsync(request, "user1");
+            var result = await _aiService.AskGrokAsync(request);
             return Ok(result);
         }
 
@@ -29,7 +29,7 @@ namespace AI_Assistant_Project.Controllers
         {
             if (string.IsNullOrWhiteSpace(request.Prompt))
                 return BadRequest("Prompt is empty");
-            var result = await _aiService.AskGeminiAsync(request, "user1");
+            var result = await _aiService.AskGeminiAsync(request);
             return Ok(result);
         }
     }
