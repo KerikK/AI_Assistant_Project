@@ -58,6 +58,8 @@ builder.Services.AddTransient<IAuthService, AuthService>();
 builder.Services.AddTransient<IJwtService, JwtService>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
 builder.Services.AddTransient<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddTransient<IAIService, AIService>();
+
 
 var jwtKey = builder.Configuration["Jwt:Key"]  ?? string.Empty;
 var key = Encoding.UTF8.GetBytes(jwtKey);

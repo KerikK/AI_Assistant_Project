@@ -21,13 +21,12 @@ namespace BLL.Services
             _config = config;
         }
 
-        public async Task<AiResponseDto> AskGroqAsync(AiRequestDto dto, string userId)
+        public async Task<AiResponseDto> AskGrokAsync(AiRequestDto dto, string userId)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             using var client = new HttpClient();
 
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config["AI:Groq:ApiKey"]}");
-
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config["AI:Grok:ApiKey"]}");
 
             var requestBody = new
             {
@@ -44,14 +43,13 @@ namespace BLL.Services
             string answer = "Request error";
 
             if (response.IsSuccessStatusCode)
-            {
-                answer = result.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
-            }
+                answer = result.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() 
+                    ?? "No response provided";
 
             return new AiResponseDto
             {
                 Response = answer,
-                Provider = "Groq (Llama 3.3)",
+                Provider = "Grok (Llama 3.3)",
                 IsSuccess = response.IsSuccessStatusCode,
                 ExecutionTimeMs = watch.ElapsedMilliseconds,
                 CreatedAt = DateTime.UtcNow
@@ -79,13 +77,12 @@ namespace BLL.Services
 
             string answer = "Request error";
             if (response.IsSuccessStatusCode)
-            {
-                answer = result.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
-            }
+                answer = result.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString()
+                    ?? "No response provided";
 
             return new AiResponseDto
             {
-                Response = answer ?? "",
+                Response = answer,
                 Provider = "Gemini 3 Flash",
                 IsSuccess = response.IsSuccessStatusCode,
                 ExecutionTimeMs = watch.ElapsedMilliseconds,

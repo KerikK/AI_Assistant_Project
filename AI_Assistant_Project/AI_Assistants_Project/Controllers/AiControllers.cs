@@ -15,7 +15,7 @@ namespace AI_Assistant_Project.Controllers
             _aiService = aiService;
         }
 
-        [HttpPost("ask-Groq")]
+        [HttpPost("AskGrok")]
         public async Task<IActionResult> AskOpenAi([FromBody] AiRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Prompt))
@@ -23,7 +23,8 @@ namespace AI_Assistant_Project.Controllers
             var result = await _aiService.AskGroqAsync(request, "user1");
             return Ok(result);
         }
-        [HttpPost("ask-gemini")]
+
+        [HttpPost("AskGemini")]
         public async Task<IActionResult> AskGemini([FromBody] AiRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Prompt))
