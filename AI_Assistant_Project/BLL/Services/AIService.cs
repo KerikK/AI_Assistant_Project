@@ -1,111 +1,135 @@
-﻿using BLL.Interfaces;
+﻿using AI_Assistant_Project.Models;
+using BLL.Interfaces;
 using DAL.Interfaces;
+using Domain.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
-using System.Net.Http.Json;
-using System.Security.Claims;
 using System.Diagnostics;
-using AI_Assistant_Project.Models;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace BLL.Services
 {
-    public class AIService : IAIService
+    public class AIService : Service<AiRequest>, IAIService
     {
         private readonly IConfiguration _config;
-        private readonly IRequestRepository _requestRepository;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IUserRepository _userRepository;
+        private readonly IRequestRepository _requestRepo;
+        private readonly IHttpContextAccessor _httpContext;
+        private readonly IUserRepository _userRepo;
+        private readonly IMemoryCache _cache;
+        private const int DailyTokenLimit = 100000;
 
-        public AIService(
-            IConfiguration config,
-            IRequestRepository requestRepository,
-            IHttpContextAccessor httpContextAccessor,
-            IUserRepository userRepository)
+        public AIService(IConfiguration config, IRequestRepository requestRepo,
+            IHttpContextAccessor httpContext, IUserRepository userRepo, IMemoryCache cache) : base(requestRepo)
         {
             _config = config;
-            _requestRepository = requestRepository;
-            _httpContextAccessor = httpContextAccessor;
-            _userRepository = userRepository;
+            _requestRepo = requestRepo;
+            _httpContext = httpContext;
+            _userRepo = userRepo;
+            _cache = cache;
         }
 
-        public async Task<Domain.Models.AiResponse> AskGroqAsync(AiRequest req)
+        public async Task<AiResponse> AskGroqAsync(AiRequest req)
         {
-            if (await _requestRepository.AnyAsync(r => r.Prompt == req.Prompt))
+            string cacheKey = $"groq_{req.Prompt.GetHashCode()}";
+            if (_cache.TryGetValue(cacheKey, out AiResponse? cached)) return cached!;
+
+            var watch = Stopwatch.StartNew();
+            using var client = new HttpClient();
+
+            var apiKey = _config["AI:Groq:ApiKey"];
+            var model = _config["AI:Groq:Model"] ?? "llama-3.3-70b-versatile";
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+            var body = new { model = model, messages = new[] { new { role = "user", content = req.Prompt } } };
+
+            var response = await client.PostAsJsonAsync("https://api.groq.com/openai/v1/chat/completions", body);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            watch.Stop();
+
+            if (!response.IsSuccessStatusCode)
+                return BuildResponse("Service error", "Groq", false, 0, (int)watch.ElapsedMilliseconds, req.Id);
+
+            string text = json.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString()!;
+            int tokens = json.GetProperty("usage").GetProperty("total_tokens").GetInt32();
+
+            await CalculateRemainingTokensAsync(GetCurrentUserId(), tokens);
+
+            var result = BuildResponse(text, $"Groq ({model})", true, tokens, (int)watch.ElapsedMilliseconds, req.Id);
+            await SaveResultAsync(req, result);
+            return _cache.Set(cacheKey, result, TimeSpan.FromMinutes(10));
+        }
+
+        public async Task<AiResponse> AskGeminiAsync(AiRequest req)
+        {
+            string cacheKey = $"gemini_{req.Prompt.GetHashCode()}";
+            if (_cache.TryGetValue(cacheKey, out AiResponse? cached)) return cached!;
+
+            var watch = Stopwatch.StartNew();
+            using var client = new HttpClient();
+
+            var apiKey = _config["AI:Gemini:ApiKey"];
+            var model = _config["AI:Gemini:Model"] ?? "gemini-3-flash-preview";
+
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={apiKey}";
+            var body = new { contents = new[] { new { parts = new[] { new { text = req.Prompt } } } } };
+
+            var response = await client.PostAsJsonAsync(url, body);
+            watch.Stop();
+
+            if (!response.IsSuccessStatusCode)
             {
-                var existing = await _requestRepository.FirstOrDefaultAsync(r => r.Prompt == req.Prompt);
-                if (existing?.Response != null) return existing.Response;
+                var errorDetails = await response.Content.ReadAsStringAsync();
+                return BuildResponse($"Error: {response.StatusCode}. Details: {errorDetails}", "Gemini", false, 0, (int)watch.ElapsedMilliseconds, req.Id);
             }
 
-            var watch = Stopwatch.StartNew();
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config["AI:Groq:ApiKey"]}");
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            string text = json.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString()!;
+            int tokens = json.GetProperty("usageMetadata").GetProperty("totalTokenCount").GetInt32();
 
-            var requestBody = new
-            {
-                model = "llama-3.3-70b-versatile",
-                messages = new[] { new { role = "user", content = req.Prompt } }
-            };
+            await CalculateRemainingTokensAsync(GetCurrentUserId(), tokens);
 
-            var httpResponse = await client.PostAsJsonAsync("https://api.groq.com/openai/v1/chat/completions", requestBody);
-            var result = await httpResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-            watch.Stop();
-
-            string answer = httpResponse.IsSuccessStatusCode
-                ? result.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? ""
-                : "Error: " + httpResponse.StatusCode;
-
-            var aiResponse = new Domain.Models.AiResponse
-            {
-                Response = answer,
-                Provider = "Grok (Llama 3.3)",
-                IsSuccess = httpResponse.IsSuccessStatusCode,
-                ExecutionTimeMs = watch.ElapsedMilliseconds,
-                CreatedAt = DateTime.UtcNow,
-                RequestId = req.Id
-            };
-
-            req.Response = aiResponse;
-            await _requestRepository.CreateAsync(req);
-            await _requestRepository.SaveChangeAsync();
-
-            return aiResponse;
+            var result = BuildResponse(text, $"Gemini ({model})", true, tokens, (int)watch.ElapsedMilliseconds, req.Id);
+            await SaveResultAsync(req, result);
+            return _cache.Set(cacheKey, result, TimeSpan.FromMinutes(10));
         }
 
-        public async Task<Domain.Models.AiResponse> AskGeminiAsync(AiRequest req)
+        private async Task<int> CalculateRemainingTokensAsync(int userId, int currentUsage)
         {
-            var watch = Stopwatch.StartNew();
-            using var client = new HttpClient();
-            var apiKey = _config["AI:Gemini:ApiKey"];
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={apiKey}";
+            var requestsToday = await _requestRepo.GetByUserIdAsync(userId);
+            int spentToday = requestsToday
+                .Where(r => r.CreatedAt.Date == DateTime.UtcNow.Date && r.Response != null)
+                .Sum(r => r.Response.TokensUsed);
 
-            var requestBody = new
-            {
-                contents = new[] { new { role = "user", parts = new[] { new { text = req.Prompt } } } }
-            };
+            return Math.Max(0, DailyTokenLimit - spentToday - currentUsage);
+        }
 
-            var httpResponse = await client.PostAsJsonAsync(url, requestBody);
-            var result = await httpResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-            watch.Stop();
+        private int GetCurrentUserId()
+        {
+            var claim = _httpContext.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(claim, out int id) ? id : -1;
+        }
 
-            string answer = httpResponse.IsSuccessStatusCode
-                ? result.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? ""
-                : "Error: " + httpResponse.StatusCode;
+        private AiResponse BuildResponse(string msg, string prov, bool ok, int t, int ms, int id) => new()
+        {
+            Response = msg,
+            Provider = prov,
+            IsSuccess = ok,
+            TokensUsed = t,
+            ExecutionTimeMs = ms,
+            CreatedAt = DateTime.UtcNow,
+            RequestId = id
+        };
 
-            var aiResponse = new Domain.Models.AiResponse
-            {
-                Response = answer,
-                Provider = "Gemini 3 Flash",
-                IsSuccess = httpResponse.IsSuccessStatusCode,
-                ExecutionTimeMs = watch.ElapsedMilliseconds,
-                CreatedAt = DateTime.UtcNow,
-                RequestId = req.Id
-            };
+        private async Task SaveResultAsync(AiRequest req, AiResponse res)
+        {
+            req.Response = res;
+            var user = await _userRepo.GetAsync(GetCurrentUserId());
+            if (user != null) user.Requests.Add(req);
 
-            req.Response = aiResponse;
-            await _requestRepository.CreateAsync(req);
-            await _requestRepository.SaveChangeAsync();
-
-            return aiResponse;
+            await _requestRepo.CreateAsync(req);
+            await _requestRepo.SaveChangeAsync();
         }
     }
 }

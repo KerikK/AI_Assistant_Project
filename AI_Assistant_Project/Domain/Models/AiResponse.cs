@@ -1,4 +1,5 @@
 ﻿using AI_Assistant_Project.Models;
+using System.Text.Json.Serialization;
 
 namespace Domain.Models
 {
@@ -12,6 +13,8 @@ namespace Domain.Models
         public int RequestId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public long ExecutionTimeMs { get; set; }
+
+        [JsonIgnore]
         public AiRequest Request { get; set; }
     }
 }

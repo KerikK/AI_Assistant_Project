@@ -40,7 +40,7 @@ builder.Services.AddSwaggerGen(opts =>
                     Id = "Bearer"
                 }
             },
-            Array.Empty<string>()
+            Array.Empty<string>()   
         }
     });
 });
@@ -61,7 +61,7 @@ builder.Services.AddTransient<IRefreshTokenRepository, RefreshTokenRepository>()
 builder.Services.AddTransient<IAIService, AIService>();
 builder.Services.AddTransient<IRequestRepository, RequestRepository>();
 builder.Services.AddHttpContextAccessor();
-
+builder.Services.AddMemoryCache();
 
 var jwtKey = builder.Configuration["Jwt:Key"]  ?? string.Empty;
 var key = Encoding.UTF8.GetBytes(jwtKey);

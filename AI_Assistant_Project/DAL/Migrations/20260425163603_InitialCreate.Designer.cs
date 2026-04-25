@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DAL.Migrations
 {
     [DbContext(typeof(AIContext))]
-    [Migration("20260425085742_V3")]
-    partial class V3
+    [Migration("20260425163603_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -136,9 +136,15 @@ namespace DAL.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("RequestId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Response")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TokensUsed")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 

@@ -18,12 +18,13 @@ namespace AI_Assistant_Project.Controllers
             _aiService = aiService;
         }
 
-        [HttpPost("AskGrok")]
-        [Authorize] 
-        public async Task<IActionResult> AskGrok([FromBody] AiRequestDto dto)
+      
+        [HttpPost("AskGroq")]
+        [Authorize]
+        public async Task<IActionResult> AskGroq([FromBody] AiRequestDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Prompt))
-                return BadRequest("Prompt is empty");
+                return BadRequest("Prompt cannot be empty.");
 
             var requestEntity = new AiRequest
             {
@@ -32,16 +33,24 @@ namespace AI_Assistant_Project.Controllers
                 CreatedAt = DateTime.UtcNow
             };
 
-            var result = await _aiService.AskGroqAsync(requestEntity);
-            return Ok(result);
+            try
+            {
+                var result = await _aiService.AskGroqAsync(requestEntity);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred during the Groq request: {ex.Message}");
+            }
         }
 
+      
         [HttpPost("AskGemini")]
         [Authorize]
         public async Task<IActionResult> AskGemini([FromBody] AiRequestDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Prompt))
-                return BadRequest("Prompt is empty");
+                return BadRequest("Prompt cannot be empty.");
 
             var requestEntity = new AiRequest
             {
@@ -50,8 +59,15 @@ namespace AI_Assistant_Project.Controllers
                 CreatedAt = DateTime.UtcNow
             };
 
-            var result = await _aiService.AskGeminiAsync(requestEntity);
-            return Ok(result);
+            try
+            {
+                var result = await _aiService.AskGeminiAsync(requestEntity);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred during the Gemini request: {ex.Message}");
+            }
         }
     }
 }

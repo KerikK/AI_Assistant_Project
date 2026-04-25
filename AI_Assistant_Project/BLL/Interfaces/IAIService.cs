@@ -14,6 +14,6 @@ namespace BLL.Interfaces
     {
 
         Task<AiResponse> AskGroqAsync(AiRequest req);
-        Task<AiResponse> AskGeminiAsync(AiRequest res);
+        Task<AiResponse> AskGeminiAsync(AiRequest req);
     }
 }

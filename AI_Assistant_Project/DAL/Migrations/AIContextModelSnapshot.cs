@@ -133,9 +133,15 @@ namespace DAL.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("RequestId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Response")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TokensUsed")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
