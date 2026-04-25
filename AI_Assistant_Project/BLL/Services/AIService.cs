@@ -1,5 +1,9 @@
-﻿using BLL.Interfaces;
-using Domain.DTO;
+﻿using AI_Assistant_Project.Models;
+using BLL.Interfaces;
+using DAL.Interfaces;
+using Domain.Identity;
+using Domain.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -7,22 +11,39 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BLL.Services
 {
-    public class AIService : IAIService
+    public class AIService : Service<AiRequest>, IAIService
     {
         private readonly IConfiguration _config;
-        public AIService(IConfiguration config)
+        private readonly IRequestRepository _requestRepository;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IUserRepository _userRepository;
+        public AIService(IConfiguration config, IRequestRepository requestRepository, 
+            IHttpContextAccessor httpContextAccessor, IUserRepository userRepository) : base(requestRepository)
         {
             _config = config;
+            _requestRepository = requestRepository;
+            _httpContextAccessor = httpContextAccessor;
+            _userRepository = userRepository;
         }
 
-        public async Task<AiResponseDto> AskGrokAsync(AiRequestDto dto)
+        public async Task<AiResponse> AskGrokAsync(AiRequest req)
         {
+            if (await _requestRepository.AnyAsync(r => r.Prompt == req.Prompt))
+                return (await _requestRepository.FirstOrDefaultAsync(r => r.Prompt == req.Prompt) ??
+                    new() { Response = new() { Response = "Response Error: incorrect request from db" } }).Response;
+
+            string test = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "-1";
+
+            var user = await _userRepository.GetAsync(
+                int.Parse(test));
+
             var watch = System.Diagnostics.Stopwatch.StartNew();
             using var client = new HttpClient();
 
@@ -31,7 +52,7 @@ namespace BLL.Services
             var requestBody = new
             {
                 model = "llama-3.3-70b-versatile",
-                messages = new[] { new { role = "user", content = dto.Prompt } }
+                messages = new[] { new { role = "user", content = req.Prompt } }
             };
 
             var response = await client.PostAsJsonAsync("https://api.groq.com/openai/v1/chat/completions", requestBody);
@@ -46,7 +67,7 @@ namespace BLL.Services
                 answer = result.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() 
                     ?? "No response provided";
 
-            return new AiResponseDto
+            var aiResponse = new AiResponse
             {
                 Response = answer,
                 Provider = "Grok (Llama 3.3)",
@@ -54,10 +75,24 @@ namespace BLL.Services
                 ExecutionTimeMs = watch.ElapsedMilliseconds,
                 CreatedAt = DateTime.UtcNow
             };
+            req.Response = aiResponse;
+
+            user?.Requests.Add(req);
+            await _requestRepository.CreateAsync(req);
+            await _requestRepository.SaveChangeAsync();
+
+            return aiResponse;
         }
 
-        public async Task<AiResponseDto> AskGeminiAsync(AiRequestDto dto)
+        public async Task<AiResponse> AskGeminiAsync(AiRequest req)
         {
+            if (await _requestRepository.AnyAsync(r => r.Prompt == req.Prompt))
+                return (await _requestRepository.FirstOrDefaultAsync(r => r.Prompt == req.Prompt) ??
+                    new() { Response = new() { Response = "Response Error: incorrect request from db" } }).Response;
+
+            var user = await _userRepository.GetAsync(
+                int.Parse(_httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "-1"));
+
             var watch = System.Diagnostics.Stopwatch.StartNew();
             using var client = new HttpClient();
 
@@ -66,7 +101,7 @@ namespace BLL.Services
 
             var requestBody = new
             {
-                contents = new[] { new { role = "user", parts = new[] { new { text = dto.Prompt } } } },
+                contents = new[] { new { role = "user", parts = new[] { new { text = req.Prompt } } } },
                 generationConfig = new { thinkingConfig = new { thinkingLevel = "HIGH" } }
             };
 
@@ -80,7 +115,7 @@ namespace BLL.Services
                 answer = result.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString()
                     ?? "No response provided";
 
-            return new AiResponseDto
+            var aiResponse = new AiResponse
             {
                 Response = answer,
                 Provider = "Gemini 3 Flash",
@@ -88,7 +123,13 @@ namespace BLL.Services
                 ExecutionTimeMs = watch.ElapsedMilliseconds,
                 CreatedAt = DateTime.UtcNow
             };
-         
+            req.Response = aiResponse;
+
+            user?.Requests.Add(req);
+            await _requestRepository.CreateAsync(req);
+            await _requestRepository.SaveChangeAsync();
+
+            return aiResponse;
         }
     }
 }

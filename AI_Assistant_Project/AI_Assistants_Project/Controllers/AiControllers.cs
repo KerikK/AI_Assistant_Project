@@ -1,6 +1,10 @@
-﻿using BLL.Interfaces;
+﻿using AI_Assistant_Project.Models;
+using BLL.Interfaces;
+using DAL.Interfaces;
 using Domain.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AI_Assistant_Project.Controllers
 {
@@ -16,20 +20,22 @@ namespace AI_Assistant_Project.Controllers
         }
 
         [HttpPost("AskGrok")]
-        public async Task<IActionResult> AskOpenAi([FromBody] AiRequestDto request)
-        {
+        [Authorize]
+        public async Task<IActionResult> AskOpenAi([FromBody] AirRequestDto request)
+        {   
             if (string.IsNullOrWhiteSpace(request.Prompt))
                 return BadRequest("Prompt is empty");
-            var result = await _aiService.AskGrokAsync(request);
+            var result = await _aiService.AskGrokAsync(new() { Prompt = request.Prompt } );
             return Ok(result);
         }
 
         [HttpPost("AskGemini")]
-        public async Task<IActionResult> AskGemini([FromBody] AiRequestDto request)
+        [Authorize]
+        public async Task<IActionResult> AskGemini([FromBody] AirRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Prompt))
                 return BadRequest("Prompt is empty");
-            var result = await _aiService.AskGeminiAsync(request);
+            var result = await _aiService.AskGeminiAsync(new() { Prompt = request.Prompt });
             return Ok(result);
         }
     }

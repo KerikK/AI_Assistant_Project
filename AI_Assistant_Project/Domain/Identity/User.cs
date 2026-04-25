@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using AI_Assistant_Project.Models;
+using Microsoft.AspNetCore.Identity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,5 +16,6 @@ namespace Domain.Identity
         public string PasswordHash { get; set; } = string.Empty;
         public DateTime Created { get; set; }
         public List<RefreshToken> Tokens { get; set; } = new();
+        public List<AiRequest> Requests { get; set; } = new();
     }
 }
