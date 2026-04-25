@@ -89,7 +89,7 @@ namespace BLL.Services
                 ? result.GetProperty("usageMetadata").GetProperty("totalTokenCount").GetInt32()
                 : 0;
 
-            var response = new Domain.Models.Response
+            var response = new Response
             {
                 Text = answer,
                 Provider = "Gemini 3 Flash",
