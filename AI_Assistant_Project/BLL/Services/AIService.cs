@@ -1,62 +1,70 @@
-﻿using BLL.Interfaces;
+﻿using AI_Assistant_Project.Models;
+using BLL.Interfaces;
+using DAL.Interfaces;
 using Domain.DTO;
+using Domain.Models;
 using Microsoft.Extensions.Configuration;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
 using System.Net.Http.Json;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace BLL.Services
 {
     public class AIService : IAIService
     {
         private readonly IConfiguration _config;
-        public AIService(IConfiguration config)
+        private readonly IRequestRepository _requestRepository;
+        public AIService(IConfiguration config, IRequestRepository requestRepository)
         {
             _config = config;
+            _requestRepository = requestRepository;
         }
 
-        public async Task<AiResponseDto> AskGrokAsync(AiRequestDto dto)
+        public async Task<Response> AskGroqAsync(Request request)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             using var client = new HttpClient();
 
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config["AI:Grok:ApiKey"]}");
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config["AI:Groq:ApiKey"]}");
 
             var requestBody = new
             {
                 model = "llama-3.3-70b-versatile",
-                messages = new[] { new { role = "user", content = dto.Prompt } }
+                messages = new[] { new { role = "user", content = request.Prompt } }
             };
 
-            var response = await client.PostAsJsonAsync("https://api.groq.com/openai/v1/chat/completions", requestBody);
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var httpResponse = await client.PostAsJsonAsync("https://api.groq.com/openai/v1/chat/completions", requestBody);
+            var result = await httpResponse.Content.ReadFromJsonAsync<JsonElement>();
             watch.Stop();
 
-            var isSuccess = response.IsSuccessStatusCode;
+            string answer = httpResponse.IsSuccessStatusCode
+                ? result.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "No response"
+                : "Error: " + httpResponse.StatusCode;
 
-            string answer = "Request error";
+            int tokens = httpResponse.IsSuccessStatusCode
+                ? result.GetProperty("usage").GetProperty("total_tokens").GetInt32()
+                : 0;
 
-            if (response.IsSuccessStatusCode)
-                answer = result.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() 
-                    ?? "No response provided";
-
-            return new AiResponseDto
+            var response = new Response
             {
-                Response = answer,
+                Text = answer,
                 Provider = "Grok (Llama 3.3)",
-                IsSuccess = response.IsSuccessStatusCode,
-                ExecutionTimeMs = watch.ElapsedMilliseconds,
-                CreatedAt = DateTime.UtcNow
+                IsSuccess = httpResponse.IsSuccessStatusCode,
+                TokensUsed = tokens,
+                ExecutionTimeMs = (int)watch.ElapsedMilliseconds,
+                CreatedAt = DateTime.UtcNow,
+                RequestId = request.Id
             };
+
+            request.Response = response;
+
+            await _requestRepository.CreateAsync(request);
+            await _requestRepository.SaveChangeAsync();
+            return response;
+
         }
 
-        public async Task<AiResponseDto> AskGeminiAsync(AiRequestDto dto)
+        public async Task<Response> AskGeminiAsync(Request request)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             using var client = new HttpClient();
@@ -66,29 +74,38 @@ namespace BLL.Services
 
             var requestBody = new
             {
-                contents = new[] { new { role = "user", parts = new[] { new { text = dto.Prompt } } } },
-                generationConfig = new { thinkingConfig = new { thinkingLevel = "HIGH" } }
+                contents = new[] { new { role = "user", parts = new[] { new { text = request.Prompt } } } }
             };
 
-            var response = await client.PostAsJsonAsync(url, requestBody);
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var httpResponse = await client.PostAsJsonAsync(url, requestBody);
+            var result = await httpResponse.Content.ReadFromJsonAsync<JsonElement>();
             watch.Stop();
-            var isSuccess = response.IsSuccessStatusCode;
 
-            string answer = "Request error";
-            if (response.IsSuccessStatusCode)
-                answer = result.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString()
-                    ?? "No response provided";
+            string answer = httpResponse.IsSuccessStatusCode
+                ? result.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "No response"
+                : "Error: " + httpResponse.StatusCode;
 
-            return new AiResponseDto
+            int tokens = httpResponse.IsSuccessStatusCode
+                ? result.GetProperty("usageMetadata").GetProperty("totalTokenCount").GetInt32()
+                : 0;
+
+            var response = new Domain.Models.Response
             {
-                Response = answer,
+                Text = answer,
                 Provider = "Gemini 3 Flash",
-                IsSuccess = response.IsSuccessStatusCode,
-                ExecutionTimeMs = watch.ElapsedMilliseconds,
-                CreatedAt = DateTime.UtcNow
+                IsSuccess = httpResponse.IsSuccessStatusCode,
+                TokensUsed = tokens,
+                ExecutionTimeMs = (int)watch.ElapsedMilliseconds,
+                CreatedAt = DateTime.UtcNow,
+                RequestId = request.Id
             };
-         
+
+            request.Response = response;
+
+            await _requestRepository.CreateAsync(request);
+            await _requestRepository.SaveChangeAsync();
+
+            return response;
         }
     }
 }

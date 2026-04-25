@@ -1,6 +1,8 @@
-﻿using BLL.Interfaces;
+﻿using AI_Assistant_Project.Models;
+using BLL.Interfaces;
 using Domain.DTO;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AI_Assistant_Project.Controllers
 {
@@ -14,22 +16,37 @@ namespace AI_Assistant_Project.Controllers
         {
             _aiService = aiService;
         }
-
-        [HttpPost("AskGrok")]
-        public async Task<IActionResult> AskOpenAi([FromBody] AiRequestDto request)
+        [HttpPost("AskGroq")]
+        public async Task<IActionResult> AskGroq([FromBody] AiRequestDto dto)
         {
-            if (string.IsNullOrWhiteSpace(request.Prompt))
+            if (string.IsNullOrWhiteSpace(dto.Prompt))
                 return BadRequest("Prompt is empty");
-            var result = await _aiService.AskGrokAsync(request);
+
+            var requestEntity = new Request
+            {
+                Prompt = dto.Prompt,
+                UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Anonymous",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await _aiService.AskGroqAsync(requestEntity);
             return Ok(result);
         }
 
         [HttpPost("AskGemini")]
-        public async Task<IActionResult> AskGemini([FromBody] AiRequestDto request)
+        public async Task<IActionResult> AskGemini([FromBody] AiRequestDto dto)
         {
-            if (string.IsNullOrWhiteSpace(request.Prompt))
+            if (string.IsNullOrWhiteSpace(dto.Prompt))
                 return BadRequest("Prompt is empty");
-            var result = await _aiService.AskGeminiAsync(request);
+
+            var requestEntity = new Request
+            {
+                Prompt = dto.Prompt,
+                UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Anonymous",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await _aiService.AskGeminiAsync(requestEntity);
             return Ok(result);
         }
     }
