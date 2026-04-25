@@ -1,5 +1,6 @@
 ﻿using AI_Assistant_Project.Models;
-using Domain.DTO;
+
+using Domain.Identity;
 using Domain.Models;
 using System;
 using System.Collections.Generic;
@@ -11,7 +12,8 @@ namespace BLL.Interfaces
 {
     public interface IAIService
     {
-        Task<Response> AskGroqAsync(Request request);
-        Task<Response> AskGeminiAsync(Request request);
+
+        Task<AiResponse> AskGroqAsync(AiRequest req);
+        Task<AiResponse> AskGeminiAsync(AiRequest res);
     }
 }

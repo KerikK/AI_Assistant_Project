@@ -7,5 +7,9 @@ using System.Threading.Tasks;
 
 namespace BLL.Interfaces
 {
-    public interface IUserService : IService<User> { }
+    public interface IUserService : IService<User>
+    {
+        public void SetCurrentUser(User user);
+        public User? GetCurrentUser();
+    }
 }

@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace DAL.Interfaces
 {
-    public interface IRequestRepository : IRepository<Request>
+    public interface IRequestRepository : IRepository<AiRequest>
     {
-        Task<IEnumerable<Request>> GetByUserIdAsync(string userId);
+        Task<IEnumerable<AiRequest>> GetByUserIdAsync(int userId);
     }
 }
