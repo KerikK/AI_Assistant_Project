@@ -1,5 +1,6 @@
 using BLL.Interfaces;
 using BLL.Services;
+using BLL.Services.LLMServices;
 using DAL;
 using DAL.Interfaces;
 using DAL.Repository;
@@ -7,9 +8,16 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .WriteTo.Console()
+    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 builder.Services.AddSwaggerGen(opts =>
 {
@@ -58,8 +66,12 @@ builder.Services.AddTransient<IAuthService, AuthService>();
 builder.Services.AddTransient<IJwtService, JwtService>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
 builder.Services.AddTransient<IRefreshTokenRepository, RefreshTokenRepository>();
-builder.Services.AddTransient<IAIService, AIService>();
 builder.Services.AddTransient<IRequestRepository, RequestRepository>();
+
+builder.Services.AddScoped<GrokService>();
+builder.Services.AddScoped<GeminiService>();
+builder.Services.AddScoped<IAIService, AIService>();
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 

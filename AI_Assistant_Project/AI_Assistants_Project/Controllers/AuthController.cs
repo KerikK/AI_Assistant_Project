@@ -1,4 +1,5 @@
-﻿using BLL.Interfaces;
+﻿using AI_Assistant_Project.Controllers;
+using BLL.Interfaces;
 using Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -8,14 +9,18 @@ namespace AI_Assistants_Project.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthController(IAuthService authService) : ControllerBase
+    public class AuthController(IAuthService authService, ILogger<AuthController> _logger) : ControllerBase
     {
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
             var res = await authService.RegisterAsync(request);
             if (!res.Success)
+            {
+                _logger.LogError(res.Message);
                 return BadRequest(new { res.Message });
+            }
+            _logger.LogInformation("Registered successfully");
             return Ok(res.Message);
         }
 
@@ -24,7 +29,11 @@ namespace AI_Assistants_Project.Controllers
         {
             var res = await authService.LoginAsync(request);
             if (!res.Success)
+            {
+                _logger.LogError(res.Message);
                 return BadRequest(new { res.Message });
+            }
+            _logger.LogInformation("Logined in successfully");
             return Ok(res.response);
         }
 
@@ -33,16 +42,12 @@ namespace AI_Assistants_Project.Controllers
         {
             var res = await authService.RefreshTokenAsync(request.RefreshToken);
             if (!res.Success)
+            {
+                _logger.LogError(res.Message);
                 return BadRequest(new { res.Message });
-
+            }
+            _logger.LogInformation("Token refreshed successfully");
             return Ok(res.response);
-        }
-
-        [HttpGet("Test")]
-        [Authorize]
-        public IActionResult Test()
-        {
-            return Ok("Success");
         }
     }
 }

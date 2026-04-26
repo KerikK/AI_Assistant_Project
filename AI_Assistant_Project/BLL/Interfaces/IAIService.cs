@@ -13,7 +13,7 @@ namespace BLL.Interfaces
     public interface IAIService
     {
 
-        Task<AiResponse> AskGroqAsync(AiRequest req);
+        Task<AiResponse> AskGrokAsync(AiRequest req);
         Task<AiResponse> AskGeminiAsync(AiRequest req);
     }
 }

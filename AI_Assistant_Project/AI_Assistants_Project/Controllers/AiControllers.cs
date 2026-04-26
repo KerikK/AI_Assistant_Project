@@ -12,19 +12,24 @@ namespace AI_Assistant_Project.Controllers
     public class AiControllers : ControllerBase
     {
         private readonly IAIService _aiService;
+        private readonly ILogger<AiControllers> _logger;
 
-        public AiControllers(IAIService aiService)
+        public AiControllers(IAIService aiService, ILogger<AiControllers> logger)
         {
             _aiService = aiService;
+            _logger = logger;
         }
 
       
-        [HttpPost("AskGroq")]
+        [HttpPost("AskGrok")]
         [Authorize]
-        public async Task<IActionResult> AskGroq([FromBody] AiRequestDto dto)
+        public async Task<IActionResult> AskGrok([FromBody] AiRequestDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Prompt))
+            {
+                _logger.LogError("Prompt is empty");
                 return BadRequest("Prompt cannot be empty.");
+            }
 
             var requestEntity = new AiRequest
             {
@@ -35,12 +40,14 @@ namespace AI_Assistant_Project.Controllers
 
             try
             {
-                var result = await _aiService.AskGroqAsync(requestEntity);
-                return Ok(result);
+                var result = await _aiService.AskGrokAsync(requestEntity);
+                _logger.LogInformation($"Grok was asked: {dto.Prompt}");
+                return Ok(result.Response);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"An error occurred during the Groq request: {ex.Message}");
+                _logger.LogError(ex, ex.InnerException?.Message ?? "An error occurred while asking Grok");
+                return StatusCode(500, $"An error occurred during the Grok request: {ex.Message}");
             }
         }
 
@@ -50,7 +57,10 @@ namespace AI_Assistant_Project.Controllers
         public async Task<IActionResult> AskGemini([FromBody] AiRequestDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Prompt))
+            {
+                _logger.LogError("Prompt is empty");
                 return BadRequest("Prompt cannot be empty.");
+            }
 
             var requestEntity = new AiRequest
             {
@@ -62,10 +72,12 @@ namespace AI_Assistant_Project.Controllers
             try
             {
                 var result = await _aiService.AskGeminiAsync(requestEntity);
-                return Ok(result);
+                _logger.LogInformation($"Gemini was asked: {dto.Prompt}");
+                return Ok(result.Response);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, ex.InnerException?.Message ?? "An error occurred while asking Gemini");
                 return StatusCode(500, $"An error occurred during the Gemini request: {ex.Message}");
             }
         }
